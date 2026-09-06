@@ -45,10 +45,14 @@ Está todo en [`supabase/schema.sql`](supabase/schema.sql).
 
 ### 1. Supabase
 
-1. Creá un proyecto gratis en [supabase.com](https://supabase.com).
+1. Creá un proyecto gratis en [supabase.com](https://supabase.com). Elegí la
+   región **South America (São Paulo)**, que es la más cercana.
 2. Abrí **SQL Editor**, pegá todo [`supabase/schema.sql`](supabase/schema.sql) y
    ejecutalo. Se puede volver a correr sin romper nada.
-3. En **Project Settings → API** copiá la URL y la clave `service_role`.
+3. En **Settings → API Keys** copiá el *Project URL* y la **clave secreta**
+   (`sb_secret_...`). En proyectos viejos esa clave se llama `service_role` y es
+   un JWT largo; sirven las dos. La secreta se saltea las políticas de la base,
+   así que solo va en el servidor.
 
 ### 2. Mercado Pago
 

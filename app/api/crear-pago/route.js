@@ -51,8 +51,13 @@ export async function POST(request) {
     .select("numero", { count: "exact", head: true })
     .is("pedido_id", null);
 
-  if (errorStock) {
-    console.error("[crear-pago] no se pudo contar el stock:", errorStock);
+  // Ojo: con head:true supabase-js no propaga el error, devuelve count null.
+  // Sin este chequeo, una base caída se vería como "se agotaron los números".
+  if (errorStock || libres === null) {
+    console.error(
+      "[crear-pago] no se pudo contar el stock:",
+      errorStock ?? "count vino null (¿corriste supabase/schema.sql?)",
+    );
     return NextResponse.json(
       { error: "No pudimos iniciar el pago. Probá de nuevo en un minuto." },
       { status: 500 },
