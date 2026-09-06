@@ -1,9 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { config, formatearPrecio, linkWhatsApp } from "./config";
+import { useEffect, useState } from "react";
+import { config, formatearPrecio } from "./config";
 
 // Opciones del desplegable: 1 número — $4.000, 2 números — $8.000, ...
 const opciones = Array.from({ length: config.maxNumeros }, (_, i) => {
@@ -16,16 +15,28 @@ const opciones = Array.from({ length: config.maxNumeros }, (_, i) => {
   };
 });
 
+const claseCampo =
+  "mb-[18px] w-full rounded-[25px] border-2 border-rosa-borde bg-white px-[25px] py-5 text-[17px] outline-none transition duration-300 focus:border-rosa focus:shadow-[0_0_15px_rgba(255,93,168,.25)] disabled:opacity-60 min-[701px]:text-[18px]";
+
 export default function Home() {
-  const router = useRouter();
   const [nombre, setNombre] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [cantidad, setCantidad] = useState(1);
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState("");
 
   const total = cantidad * config.precioPorNumero;
 
-  function manejarEnvio(evento) {
+  // Si Mercado Pago nos devolvió por un pago rechazado, avisamos.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("pago") === "rechazado") {
+      setError("El pago no se pudo completar. Podés intentarlo de nuevo.");
+    }
+  }, []);
+
+  async function manejarEnvio(evento) {
     evento.preventDefault();
+    setError("");
 
     const datos = {
       nombre: nombre.trim(),
@@ -34,22 +45,33 @@ export default function Home() {
     };
 
     if (!datos.nombre || !datos.whatsapp) {
-      alert("Completá todos los datos.");
+      setError("Completá todos los datos.");
       return;
     }
 
-    // Abrimos WhatsApp con el pedido ya escrito (esto corre dentro del
-    // clic, así que el navegador no lo bloquea) y mostramos la pantalla
-    // de confirmación por si no llegó a abrirse.
-    window.open(linkWhatsApp(datos), "_blank", "noopener,noreferrer");
+    setEnviando(true);
 
-    const parametros = new URLSearchParams({
-      nombre: datos.nombre,
-      whatsapp: datos.whatsapp,
-      cantidad: String(datos.cantidad),
-    });
+    try {
+      const respuesta = await fetch("/api/crear-pago", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(datos),
+      });
 
-    router.push(`/gracias?${parametros.toString()}`);
+      const resultado = await respuesta.json();
+
+      if (!respuesta.ok || !resultado.linkDePago) {
+        throw new Error(resultado.error ?? "No pudimos iniciar el pago.");
+      }
+
+      // A Mercado Pago. Cuando el pago se acredite, el webhook le asigna
+      // los números y vuelve a /gracias?pedido=...
+      window.location.href = resultado.linkDePago;
+    } catch (problema) {
+      console.error(problema);
+      setError(problema.message);
+      setEnviando(false);
+    }
   }
 
   return (
@@ -81,7 +103,8 @@ export default function Home() {
             placeholder="👤 Nombre y apellido"
             required
             autoComplete="name"
-            className="mb-[18px] w-full rounded-[25px] border-2 border-rosa-borde bg-white px-[25px] py-5 text-[17px] outline-none transition duration-300 focus:border-rosa focus:shadow-[0_0_15px_rgba(255,93,168,.25)] min-[701px]:text-[18px]"
+            disabled={enviando}
+            className={claseCampo}
           />
 
           <input
@@ -91,7 +114,8 @@ export default function Home() {
             placeholder="📲 Número de WhatsApp"
             required
             autoComplete="tel"
-            className="mb-[18px] w-full rounded-[25px] border-2 border-rosa-borde bg-white px-[25px] py-5 text-[17px] outline-none transition duration-300 focus:border-rosa focus:shadow-[0_0_15px_rgba(255,93,168,.25)] min-[701px]:text-[18px]"
+            disabled={enviando}
+            className={claseCampo}
           />
 
           <label
@@ -106,7 +130,8 @@ export default function Home() {
             value={cantidad}
             onChange={(e) => setCantidad(Number(e.target.value))}
             required
-            className="select-dinamica mx-auto block w-full max-w-full cursor-pointer rounded-[20px] border-2 border-rosa-borde bg-white py-[18px] pr-[50px] pl-[22px] text-[17px] font-semibold text-[#555] outline-none transition duration-300 hover:border-rosa focus:border-rosa focus:shadow-[0_0_15px_rgba(255,93,168,.25)] min-[701px]:w-[360px] min-[701px]:text-[18px]"
+            disabled={enviando}
+            className="select-dinamica mx-auto block w-full max-w-full cursor-pointer rounded-[20px] border-2 border-rosa-borde bg-white py-[18px] pr-[50px] pl-[22px] text-[17px] font-semibold text-[#555] outline-none transition duration-300 hover:border-rosa focus:border-rosa focus:shadow-[0_0_15px_rgba(255,93,168,.25)] disabled:opacity-60 min-[701px]:w-[360px] min-[701px]:text-[18px]"
           >
             {opciones.map((opcion) => (
               <option key={opcion.cantidad} value={opcion.cantidad}>
@@ -119,18 +144,27 @@ export default function Home() {
             Total: {formatearPrecio(total)}
           </h3>
 
+          {error && (
+            <p
+              role="alert"
+              className="mb-6 rounded-[18px] bg-rosa-fondo px-5 py-4 text-[16px] font-semibold text-rosa"
+            >
+              {error}
+            </p>
+          )}
+
           <button
             type="submit"
-            className="w-full cursor-pointer rounded-[40px] bg-[linear-gradient(90deg,#ff5da8,#ff80be)] p-5 text-[20px] font-bold text-white shadow-[0_15px_30px_rgba(255,93,168,.35)] transition duration-300 hover:-translate-y-[3px] hover:shadow-[0_20px_40px_rgba(255,93,168,.45)] min-[701px]:p-[22px] min-[701px]:text-[23px]"
+            disabled={enviando}
+            className="w-full cursor-pointer rounded-[40px] bg-[linear-gradient(90deg,#ff5da8,#ff80be)] p-5 text-[20px] font-bold text-white shadow-[0_15px_30px_rgba(255,93,168,.35)] transition duration-300 hover:-translate-y-[3px] hover:shadow-[0_20px_40px_rgba(255,93,168,.45)] disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0 min-[701px]:p-[22px] min-[701px]:text-[23px]"
           >
-            🤍 QUIERO PARTICIPAR
+            {enviando ? "Abriendo Mercado Pago…" : "🤍 QUIERO PARTICIPAR"}
           </button>
         </form>
 
         <p className="mx-auto mt-[55px] max-w-[520px] text-[16px] leading-[1.9] text-texto-suave min-[701px]:text-[17px]">
-          💖 Al tocar el botón se abre WhatsApp con tu pedido ya escrito. Una vez
-          confirmado el pago, tus números se asignan y te los paso por ese mismo
-          chat.
+          💖 Vas a pagar con Mercado Pago. Apenas se acredite, tus números se
+          asignan solos y se muestran en la siguiente pantalla.
         </p>
       </div>
     </main>
