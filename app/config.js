@@ -9,7 +9,7 @@ export const config = {
   marca: "BonIA Dinámicas",
 
   // --- Precio ---
-  precioPorNumero: 4000, // en pesos
+  precioPorNumero: 100, // en pesos
   maxNumeros: 10, // cuántos números puede comprar una persona de una vez
   moneda: "ARS", // código ISO que usa Mercado Pago
 
